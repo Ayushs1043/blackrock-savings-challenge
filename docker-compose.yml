@@ -1,0 +1,5 @@
+services:
+  api:
+    build: .
+    ports:
+      - "5477:5477"
