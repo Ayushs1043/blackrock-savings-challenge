@@ -1,19 +1,18 @@
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
 
-app = FastAPI(title="BlackRock Hackathon API", version="1.0")
+from app.api.routes import router
+from app.errors import add_exception_handlers
 
-class SolveRequest(BaseModel):
-    input: str = Field(..., min_length=1, max_length=20000)
 
-class SolveResponse(BaseModel):
-    output: str
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title="BlackRock Hackathon API",
+        version="1.0.0",
+        description="Template API to transform, validate, and calculate financial returns.",
+    )
+    app.include_router(router)
+    add_exception_handlers(app)
+    return app
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
 
-@app.post("/solve", response_model=SolveResponse)
-def solve(req: SolveRequest):
-    # TODO: replace with your real algorithm tomorrow
-    return SolveResponse(output=req.input[::-1])
+app = create_app()

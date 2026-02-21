@@ -1,0 +1,14 @@
+# docker build -f Dockerfile.dev -t blk-hacking-ind-{name-lastname}-dev .
+# OS choice: python:3.11-slim (Debian-based Linux) keeps dev image lightweight and reproducible.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt ./requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+
+COPY app ./app
+
+EXPOSE 5477
+
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5477", "--reload", "--reload-dir", "/app/app"]
