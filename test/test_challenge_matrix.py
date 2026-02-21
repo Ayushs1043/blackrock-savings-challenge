@@ -155,6 +155,14 @@ def test_parse_unordered_dates_set_equivalence(client):
     assert actual == expected
 
 
+def test_parse_accepts_swagger_iso_timestamp(client):
+    payload = {"expenses": [{"timestamp": "2026-02-21T08:11:19.871Z", "amount": 499999}]}
+    response = client.post(f"{CHALLENGE_BASE}/transactions:parse", json=payload)
+    assert_json_response(response, 200)
+    tx = response.json()["transactions"][0]
+    assert tx["date"] == "2026-02-21 08:11:19"
+
+
 @pytest.mark.parametrize(
     "payload",
     [

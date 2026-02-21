@@ -1,5 +1,5 @@
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -8,17 +8,31 @@ DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 DATETIME_ACCEPTED_FORMATS = (DATETIME_FORMAT, "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S")
 
 
+def _normalize_datetime(value: datetime) -> datetime:
+    normalized = value
+    if normalized.tzinfo is not None:
+        normalized = normalized.astimezone(timezone.utc).replace(tzinfo=None)
+    return normalized.replace(microsecond=0)
+
+
 def _parse_datetime(value: Any) -> datetime:
     if isinstance(value, datetime):
-        return value
+        return _normalize_datetime(value)
     if not isinstance(value, str):
         raise ValueError("Datetime must be a string in format YYYY-MM-DD HH:mm:ss.")
 
     for fmt in DATETIME_ACCEPTED_FORMATS:
         try:
-            return datetime.strptime(value, fmt)
+            return _normalize_datetime(datetime.strptime(value, fmt))
         except ValueError:
             continue
+
+    # Swagger examples commonly use RFC3339/ISO-8601 date-times with fractions and timezone (e.g. "...Z").
+    try:
+        iso_candidate = value.replace("Z", "+00:00")
+        return _normalize_datetime(datetime.fromisoformat(iso_candidate))
+    except ValueError:
+        pass
 
     raise ValueError("Invalid datetime format. Expected YYYY-MM-DD HH:mm:ss.")
 
