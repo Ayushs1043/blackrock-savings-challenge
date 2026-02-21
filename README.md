@@ -1,140 +1,147 @@
-# BlackRock Challenge API
+# BlackRock Savings Challenge - Investment Simulation API
 
-API solution for the BlackRock hackathon challenge.
+A production-ready backend implementation for the BlackRock Hackathon Challenge.
 
-## 1) Challenge Deployment and Evaluation (PDF-Aligned)
+This project implements a deterministic financial savings engine that:
 
-This section is written for judges/reviewers first.
+- Converts expenses into micro-investments via rounding logic
+- Applies temporal financial constraints (`q` / `p` / `k` rules)
+- Computes long-term investment returns (NPS / Index Fund)
+- Provides Dockerized deployment for evaluation
+- Includes automated testing and performance instrumentation
 
-### 1.1 Deployment Requirements and Compliance
+The system is designed for correctness, scalability, reproducibility, and evaluator convenience.
 
-Requirement: Dockerized server with business logic.
-Status: Implemented with `Dockerfile` (deployment image) and `Dockerfile.dev` (development image).
+---
 
-Requirement: Application must run on port `5477` inside container.
-Status: Implemented. Uvicorn runs on `--port 5477`.
+## 1) Problem Overview
 
-Requirement: Docker mapping must support `-p 5477:5477`.
-Status: Implemented for deployment service and documented below.
+The challenge models a real-world fintech automation system:
 
-Requirement: Dockerfile must expose port `5477`.
-Status: Implemented with `EXPOSE 5477`.
+1. Every expense is rounded up to the nearest INR 100.
+2. The difference (`remanent`) is saved.
+3. Temporal rules modify savings:
+   - `q` periods: fixed override savings
+   - `p` periods: additional savings
+   - `k` periods: evaluation windows
+4. Savings are invested into:
+   - National Pension Scheme (NPS)
+   - Index Fund
+5. Final returns are computed with compounding and inflation adjustment.
 
-Requirement: OS must be Linux-based and selection criteria must be commented.
-Status: Implemented. Base image is `python:3.11-slim` (Debian Linux) with rationale comment in Dockerfiles.
+This simulates automated savings plus investment optimization.
 
-Requirement: First line of Dockerfile must include build command with naming convention `blk-hacking-ind-{name-lastname}`.
-Status: Implemented in `Dockerfile` first line comment.
+---
 
-Requirement: If dependencies/services exist, include Docker Compose YAML named `compose.yaml`.
-Status: Implemented. `compose.yaml` includes deployment and development service definitions.
+## 2) Architecture Overview
 
-### 1.2 Deployment Commands (Exact)
+```text
+Expense Input
+  -> Transaction Parser
+  -> Validation Engine
+  -> Temporal Rule Processor (q/p/k)
+  -> Investment Calculator
+  -> Performance and Monitoring APIs
+```
 
-Build deployment image:
+### Core Components
+
+| Component | Responsibility |
+|---|---|
+| Parser | Expense to remanent transformation |
+| Validator | Input validation and business rule enforcement |
+| Temporal Engine | Applies q/p/k logic with deterministic resolution |
+| Returns Engine | Calculates NPS and Index fund returns |
+| Performance API | Reports runtime resource metrics |
+
+---
+
+## 3) API Endpoints
+
+Base URL:
+
+`http://localhost:5477`
+
+Swagger Documentation:
+
+`http://localhost:5477/docs`
+
+Endpoints:
+
+1. Parse Transactions  
+`POST /blackrock/challenge/v1/transactions:parse`  
+Converts raw expenses into savings transactions.
+
+2. Validate Transactions  
+`POST /blackrock/challenge/v1/transactions:validator`  
+Validates duplicates, business rules, and investment constraints.
+
+3. Apply Temporal Rules  
+`POST /blackrock/challenge/v1/transactions:filter`  
+Applies q-period overrides, p-period additions, and k-period evaluation windows.
+
+Deterministic overlap handling:
+- Overlapping `q`: latest `start` wins; tie uses first in input list
+- Overlapping `p`: sum all matching `extra`
+- Interval boundaries are inclusive
+
+4. Calculate NPS Returns  
+`POST /blackrock/challenge/v1/returns:nps`  
+Calculates annual compounding (7.11%), tax deduction (`min(investment, 10% income, INR 200000)`), separate tax benefit, and inflation-adjusted real value.
+
+5. Calculate Index Returns  
+`POST /blackrock/challenge/v1/returns:index`  
+Calculates annual compounding (14.49%) and inflation-adjusted real value.
+
+6. Performance Monitoring  
+`GET /blackrock/challenge/v1/performance`  
+Returns execution time, memory usage, and thread count.
+
+---
+
+## 4) Deployment (Hackathon Compliant)
+
+### Build Docker Image
+
 ```bash
 docker build -t blk-hacking-ind-{name-lastname} .
 ```
 
-Run deployment container (required mapping):
+### Run Container
+
 ```bash
 docker run -d -p 5477:5477 blk-hacking-ind-{name-lastname}
 ```
 
-Verify health:
+### Health Check
+
 ```bash
 curl http://localhost:5477/health
 ```
 
-Compose deployment run:
+### Docker Compose Deployment
+
 ```bash
 docker compose -f compose.yaml up --build -d api
 ```
 
-### 1.3 Testing Requirements and Compliance
+### Docker Compose Dev Mode
 
-Requirement: tests must be under a folder named `test`.
-Status: Implemented (`test/` folder).
-
-Requirement: each test file must include comments for:
-1. Test type
-2. Validation executed
-3. Command with arguments to execute
-
-Status: Implemented in challenge and API test files.
-
-Run all tests:
 ```bash
-pytest -q
+docker compose -f compose.yaml --profile dev up --build api-dev
 ```
 
-Run key suites:
-```bash
-pytest -q test/test_challenge_api.py
-pytest -q test/test_challenge_matrix.py
-```
+---
 
-### 1.4 Evaluation Criteria Mapping
+## 5) Local Development Setup
 
-Algorithm:
-- Deterministic transaction parse/validate/filter logic and return calculation services.
+Requirements:
 
-API:
-- Challenge endpoints exposed under `/blackrock/challenge/v1`.
-- OpenAPI docs enabled at `/docs`.
-
-Validations:
-- Structured request validation and business rule validation.
-- Negative, edge, stress, and fuzz-style checks in matrix tests.
-
-Deployment:
-- Linux-based Docker image, port `5477`, `compose.yaml`, healthcheck, reproducible run commands.
-
-Testing:
-- Automated test coverage under `test/` with explicit execution metadata comments.
-
-### 1.5 Submission Checklist
-
-Before submission, ensure the default branch contains:
-1. Full source code
-2. `Dockerfile`
-3. `compose.yaml`
-4. `test/` automation
-5. This `README.md` with configure/run/test instructions
-
-Publish the repository as public and share that public URL.
-
-## 2) API Reference
-
-Base URL (deployment): `http://localhost:5477`
-
-Endpoints:
-1. `POST /blackrock/challenge/v1/transactions:parse`
-2. `POST /blackrock/challenge/v1/transactions:validator`
-3. `POST /blackrock/challenge/v1/transactions:filter`
-4. `POST /blackrock/challenge/v1/returns:nps`
-5. `POST /blackrock/challenge/v1/returns:index`
-6. `GET /blackrock/challenge/v1/performance`
-
-Swagger UI:
-- `http://localhost:5477/docs`
-
-## 3) Development Process (For Contributors)
-
-This section is for someone who wants to develop or extend this repository.
-
-### 3.1 Recommended Environment (WSL Ubuntu)
-
-Use your WSL Ubuntu workspace:
-```bash
-cd /home/dev/hackathons/blackrock
-```
-
-Prerequisites:
 1. Python 3.11+
-2. Docker + Docker Compose
+2. Docker
+3. Linux or WSL (recommended)
 
-### 3.2 Local Python Development
+Run locally (without Docker):
 
 ```bash
 python -m venv .venv
@@ -143,31 +150,143 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 5477 --reload
 ```
 
-### 3.3 Docker Development Flow
+Access:
 
-Run hot-reload development container:
+`http://localhost:5477/docs`
+
+---
+
+## 6) Testing Strategy
+
+All tests are located under:
+
+`test/`
+
+Coverage includes:
+
+- Positive tests
+- Negative validation tests
+- Edge case tests
+- Temporal overlap tests
+- Investment calculation tests
+- Stress and matrix tests
+
+Run all tests:
+
+```bash
+pytest -q
+```
+
+Run specific files:
+
+```bash
+pytest -q test/test_challenge_api.py
+pytest -q test/test_challenge_matrix.py
+```
+
+---
+
+## 7) Algorithmic Approach
+
+Designed for scalability and determinism.
+
+Key principles:
+
+- Deterministic interval resolution
+- Efficient temporal constraint handling
+- Avoidance of quadratic scans where possible
+- Stable numeric precision
+- Inclusive boundary handling
+
+Correctness and reproducibility are prioritized over micro-optimizations.
+
+---
+
+## 8) Performance and Reliability
+
+The system includes:
+
+- Health monitoring endpoint
+- Deterministic responses
+- Docker reproducibility
+- Performance metrics API
+- Structured error handling
+- Extensive input validation
+
+---
+
+## 9) Design Decisions
+
+Why deterministic resolution?  
+To ensure consistent behavior under overlapping temporal constraints.
+
+Why interval-first processing?  
+To avoid ambiguous savings calculations.
+
+Why separate NPS and Index endpoints?  
+To keep tax-aware and non-tax return logic clearly separated.
+
+---
+
+## 10) Future Scope
+
+Product enhancements:
+
+- User authentication and portfolio accounts
+- Multi-instrument portfolio simulation
+- Real-time market data integration
+- Advanced tax computation engine
+- Configurable compounding strategies
+
+Engineering enhancements:
+
+- Horizontal scaling
+- Distributed processing
+- Caching layer for interval aggregation
+- Prometheus plus Grafana observability
+- CI/CD automation
+
+---
+
+## 11) Contributor Development Workflow
+
+Use WSL Ubuntu workspace:
+
+```bash
+cd /home/dev/hackathons/blackrock
+```
+
+For containerized development with hot reload:
+
 ```bash
 docker compose -f compose.yaml --profile dev up --build api-dev
 ```
 
-Development URL:
-- `http://localhost:5478`
-- `http://localhost:5478/docs`
+Development docs URL:
 
-### 3.4 Quality Gate Before Push
+`http://localhost:5478/docs`
+
+Quality gate before push:
 
 ```bash
 ruff check .
 pytest -q
 ```
 
-### 3.5 Configuration Policy for This Hackathon
+---
 
-- No API keys, secrets, or environment variables are required to run the baseline solution.
-- Keep setup simple and reproducible for evaluator convenience.
+## 12) Contributing
 
-## 4) Future Scope
+To contribute:
 
-1. Add authentication/authorization for production-grade security.
-2. Add observability (metrics, tracing, audit logs).
-3. Add extensible modules for more instruments/rules and regional tax logic.
+1. Fork the repository
+2. Create a feature branch
+3. Add or update corresponding tests
+4. Submit a pull request
+
+Areas open for contribution:
+
+- Additional investment calculators
+- Performance optimization
+- Financial modeling enhancements
+- API documentation improvements
