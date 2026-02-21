@@ -101,13 +101,30 @@ Returns execution time, memory usage, and thread count.
 
 ## 4) Deployment (Hackathon Compliant)
 
-### Build Docker Image
+### Public Container Image (GHCR)
+
+Published image (public, no login required for pull):
+
+`ghcr.io/ayushs1043/blk-hacking-ind-ayush-shukla:latest`
+
+Package page:
+
+`https://github.com/Ayushs1043/blackrock-savings-challenge/pkgs/container/blk-hacking-ind-ayush-shukla`
+
+### Pull and Run Published Image (Recommended for Evaluators)
+
+```bash
+docker pull ghcr.io/ayushs1043/blk-hacking-ind-ayush-shukla:latest
+docker run -d -p 5477:5477 ghcr.io/ayushs1043/blk-hacking-ind-ayush-shukla:latest
+```
+
+### Build Docker Image Locally (Optional)
 
 ```bash
 docker build -t blk-hacking-ind-{name-lastname} .
 ```
 
-### Run Container
+### Run Local Image
 
 ```bash
 docker run -d -p 5477:5477 blk-hacking-ind-{name-lastname}
@@ -130,6 +147,17 @@ docker compose -f compose.yaml up --build -d api
 ```bash
 docker compose -f compose.yaml --profile dev up --build api-dev
 ```
+
+### Image Publishing Automation
+
+GitHub Actions workflow:
+
+`.github/workflows/publish-image.yml`
+
+On each push to `main`, it builds and publishes:
+
+1. `ghcr.io/ayushs1043/blk-hacking-ind-ayush-shukla:latest`
+2. `ghcr.io/ayushs1043/blk-hacking-ind-ayush-shukla:sha-<commit>`
 
 ---
 
