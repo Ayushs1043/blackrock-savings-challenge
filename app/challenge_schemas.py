@@ -146,7 +146,7 @@ class TransactionParseResponse(ChallengeBaseModel):
 
 class TransactionValidateRequest(ChallengeBaseModel):
     wage: float = Field(..., ge=0, lt=50_000_000)
-    maxInvestmentAmount: float | None = Field(default=None, ge=0, lt=500_000)
+    maxInvestmentAmount: float | None = Field(default=None, ge=0, le=500_000)
     transactions: list[Transaction] = Field(default_factory=list, max_length=1_000_000)
 
     @field_validator("wage", mode="before")

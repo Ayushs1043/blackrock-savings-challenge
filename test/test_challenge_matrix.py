@@ -271,6 +271,17 @@ def test_validator_boundary_max_invest(client):
     assert len(body["valid"]) == len(transactions)
 
 
+def test_validator_max_invest_upper_bound_inclusive(client):
+    transactions = parse_transactions(client, sample_expenses())
+    response = client.post(
+        f"{CHALLENGE_BASE}/transactions:validator",
+        json={"wage": 50000, "maxInvestmentAmount": 500000.0, "transactions": transactions},
+    )
+    assert_json_response(response, 200)
+    body = response.json()
+    assert len(body["valid"]) == len(transactions)
+
+
 def test_validator_duplicate_timestamp(client):
     transactions = parse_transactions(client, sample_expenses())
     transactions.append(transactions[0].copy())
