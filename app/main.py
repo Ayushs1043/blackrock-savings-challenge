@@ -5,6 +5,7 @@ from app.errors import add_exception_handlers
 
 
 def create_app() -> FastAPI:
+    """Create and configure the FastAPI application instance."""
     app = FastAPI(
         title="BlackRock Hackathon API",
         version="1.0.0",

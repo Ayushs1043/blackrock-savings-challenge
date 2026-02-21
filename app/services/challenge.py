@@ -1,3 +1,5 @@
+"""Core challenge business logic for parsing, validating, filtering, and returns."""
+
 import heapq
 import math
 import resource
@@ -35,15 +37,18 @@ EPSILON = 1e-9
 
 
 def _round2(value: float) -> float:
+    """Round monetary values to 2 decimals with epsilon stability."""
     return round(value + EPSILON, 2)
 
 
 def _is_multiple_of_100(value: float) -> bool:
+    """Return whether value is effectively divisible by 100 under float precision."""
     remainder = math.fmod(value, ROUNDING_BASE)
     return abs(remainder) < EPSILON or abs(remainder - ROUNDING_BASE) < EPSILON
 
 
 def _invalid_from_transaction(transaction: Transaction, message: str) -> InvalidTransaction:
+    """Build an `InvalidTransaction` from a base transaction plus reason text."""
     payload = transaction.model_dump(include={"date", "amount", "ceiling", "remanent"})
     payload["message"] = message
     return InvalidTransaction(**payload)
@@ -53,6 +58,7 @@ def _split_transactions(
     transactions: Sequence[Transaction],
     max_investment_amount: float | None = None,
 ) -> tuple[list[Transaction], list[InvalidTransaction], list[InvalidTransaction]]:
+    """Partition input transactions into valid, invalid, and duplicate buckets."""
     seen_dates: set[datetime] = set()
     valid: list[Transaction] = []
     invalid: list[InvalidTransaction] = []
@@ -110,6 +116,7 @@ def _split_transactions(
 
 
 def parse_transactions(request: TransactionParseRequest) -> TransactionParseResponse:
+    """Convert expenses into normalized transaction entries and aggregated totals."""
     transactions: list[Transaction] = []
     total_amount = 0.0
     total_ceiling = 0.0
@@ -140,6 +147,7 @@ def parse_transactions(request: TransactionParseRequest) -> TransactionParseResp
 
 
 def validate_transactions(request: TransactionValidateRequest) -> TransactionValidateResponse:
+    """Validate transactions against consistency checks and optional cap constraint."""
     valid, invalid, duplicates = _split_transactions(
         request.transactions,
         request.maxInvestmentAmount,
@@ -152,6 +160,7 @@ def _apply_temporal_rules(
     q_periods: Sequence[FixedPeriod],
     p_periods: Sequence[ExtraPeriod],
 ) -> list[ProcessedTransaction]:
+    """Apply q overrides and p additions per transaction in chronological order."""
     indexed_transactions = sorted(
         enumerate(transactions), key=lambda entry: entry[1].date
     )
@@ -173,6 +182,7 @@ def _apply_temporal_rules(
     for original_index, transaction in indexed_transactions:
         current_time = transaction.date
 
+        # q uses priority by latest start; tie is resolved by first input index.
         while (
             q_index < len(sorted_q_with_index)
             and sorted_q_with_index[q_index][1].start <= current_time
@@ -188,6 +198,7 @@ def _apply_temporal_rules(
         while q_heap and q_heap[0][2] < current_time:
             heapq.heappop(q_heap)
 
+        # p contributions stack: all active ranges contribute to extra remanent.
         while p_index < len(sorted_p) and sorted_p[p_index].start <= current_time:
             period = sorted_p[p_index]
             heapq.heappush(p_heap, (period.end, period.extra))
@@ -215,6 +226,7 @@ def _apply_temporal_rules(
 
 
 def _merge_ranges(ranges: Sequence[DateRange]) -> list[DateRange]:
+    """Merge overlapping inclusive date ranges to speed up membership checks."""
     if not ranges:
         return []
 
@@ -233,6 +245,7 @@ def _merge_ranges(ranges: Sequence[DateRange]) -> list[DateRange]:
 
 
 def filter_transactions(request: TransactionFilterRequest) -> TransactionFilterResponse:
+    """Validate, transform with q/p, and keep only entries covered by k ranges."""
     valid, invalid, duplicates = _split_transactions(request.transactions)
     processed = _apply_temporal_rules(valid, request.q, request.p)
 
@@ -274,6 +287,7 @@ def filter_transactions(request: TransactionFilterRequest) -> TransactionFilterR
 
 
 def _calculate_tax(income: float) -> float:
+    """Compute tax using the challenge slab model."""
     taxable_income = max(0.0, income)
     if taxable_income <= 700_000:
         return 0.0
@@ -295,6 +309,7 @@ def _calculate_tax(income: float) -> float:
 
 
 def _calculate_nps_tax_benefit(monthly_wage: float, invested_amount: float) -> float:
+    """Estimate NPS tax benefit from annual income and deduction caps."""
     annual_income = monthly_wage * 12.0
     deduction_cap = annual_income * NPS_DEDUCTION_INCOME_RATIO
     deduction = min(invested_amount, deduction_cap, NPS_MAX_DEDUCTION)
@@ -304,12 +319,14 @@ def _calculate_nps_tax_benefit(monthly_wage: float, invested_amount: float) -> f
 
 
 def _investment_horizon_years(age: int) -> int:
+    """Map current age to investment horizon years for return projections."""
     if age < 60:
         return 60 - age
     return 5
 
 
 def _real_return(amount: float, annual_rate: float, inflation: float, years: int) -> float:
+    """Compute inflation-adjusted future value from compounded nominal returns."""
     nominal_amount = amount * ((1 + annual_rate) ** years)
     inflation_factor = (1 + inflation / 100.0) ** years
     if inflation_factor == 0:
@@ -321,6 +338,7 @@ def _sum_by_date_range(
     transactions: Sequence[ProcessedTransaction],
     date_ranges: Sequence[DateRange],
 ) -> list[tuple[DateRange, float]]:
+    """Aggregate effective remanent totals for each k window via prefix sums."""
     if not date_ranges:
         return []
 
@@ -342,6 +360,7 @@ def _sum_by_date_range(
 
 
 def _calculate_returns(request: ReturnsRequest, annual_rate: float, is_nps: bool) -> ReturnsResponse:
+    """Shared return engine used by both NPS and index endpoints."""
     valid_transactions, _, _ = _split_transactions(request.transactions)
     processed = _apply_temporal_rules(valid_transactions, request.q, request.p)
     grouped_amounts = _sum_by_date_range(processed, request.k)
@@ -378,14 +397,17 @@ def _calculate_returns(request: ReturnsRequest, annual_rate: float, is_nps: bool
 
 
 def calculate_nps_returns(request: ReturnsRequest) -> ReturnsResponse:
+    """Return response for NPS rate and tax-aware calculation mode."""
     return _calculate_returns(request, annual_rate=NPS_RATE, is_nps=True)
 
 
 def calculate_index_returns(request: ReturnsRequest) -> ReturnsResponse:
+    """Return response for index-fund rate and tax-neutral calculation mode."""
     return _calculate_returns(request, annual_rate=INDEX_RATE, is_nps=False)
 
 
 def build_performance_report(start_time: float | None = None) -> PerformanceResponse:
+    """Return basic in-process performance metrics for observability endpoint."""
     elapsed_ms = 0.0
     if start_time is not None:
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0

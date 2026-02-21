@@ -1,3 +1,5 @@
+"""HTTP route layer for challenge, finance, and utility endpoints."""
+
 from time import perf_counter
 
 from fastapi import APIRouter
@@ -38,11 +40,13 @@ router = APIRouter()
 
 @router.get("/", tags=["meta"])
 def root() -> dict[str, str]:
+    """Return API banner metadata and docs path."""
     return {"message": "BlackRock Hackathon API", "docs": "/docs"}
 
 
 @router.get("/health", response_model=HealthResponse, tags=["meta"])
 def health() -> HealthResponse:
+    """Return service health status."""
     return HealthResponse()
 
 
@@ -52,6 +56,7 @@ def health() -> HealthResponse:
     tags=["solver"],
 )
 def solve(req: SolveRequest) -> SolveResponse:
+    """Execute non-challenge utility operations."""
     return solve_request(req)
 
 
@@ -63,6 +68,7 @@ def solve(req: SolveRequest) -> SolveResponse:
 def retirement_projection(
     req: RetirementProjectionRequest,
 ) -> RetirementProjectionResponse:
+    """Project long-term retirement corpus from monthly investing inputs."""
     return project_retirement_corpus(req)
 
 
@@ -72,6 +78,7 @@ def retirement_projection(
     tags=["finance"],
 )
 def roundup_projection(req: RoundupProjectionRequest) -> RoundupProjectionResponse:
+    """Estimate corpus growth using round-up based micro-investments."""
     return project_roundup_corpus(req)
 
 
@@ -81,6 +88,7 @@ def roundup_projection(req: RoundupProjectionRequest) -> RoundupProjectionRespon
     tags=["blackrock-challenge"],
 )
 def transaction_builder(req: TransactionParseRequest) -> TransactionParseResponse:
+    """Parse expense rows into normalized transaction entries."""
     return parse_transactions(req)
 
 
@@ -90,6 +98,7 @@ def transaction_builder(req: TransactionParseRequest) -> TransactionParseRespons
     tags=["blackrock-challenge"],
 )
 def transaction_validator(req: TransactionValidateRequest) -> TransactionValidateResponse:
+    """Validate transaction consistency, duplicates, and investment constraints."""
     return validate_transactions(req)
 
 
@@ -99,6 +108,7 @@ def transaction_validator(req: TransactionValidateRequest) -> TransactionValidat
     tags=["blackrock-challenge"],
 )
 def temporal_constraints_validator(req: TransactionFilterRequest) -> TransactionFilterResponse:
+    """Apply q/p temporal rules and filter transactions by k windows."""
     return filter_transactions(req)
 
 
@@ -108,6 +118,7 @@ def temporal_constraints_validator(req: TransactionFilterRequest) -> Transaction
     tags=["blackrock-challenge"],
 )
 def returns_nps(req: ReturnsRequest) -> ReturnsResponse:
+    """Calculate inflation-adjusted returns using the NPS annual rate and tax benefit."""
     return calculate_nps_returns(req)
 
 
@@ -117,6 +128,7 @@ def returns_nps(req: ReturnsRequest) -> ReturnsResponse:
     tags=["blackrock-challenge"],
 )
 def returns_index(req: ReturnsRequest) -> ReturnsResponse:
+    """Calculate inflation-adjusted returns using the index annual rate."""
     return calculate_index_returns(req)
 
 
@@ -126,5 +138,6 @@ def returns_index(req: ReturnsRequest) -> ReturnsResponse:
     tags=["blackrock-challenge"],
 )
 def performance_report() -> PerformanceResponse:
+    """Expose simple runtime performance metrics for the current process."""
     start_time = perf_counter()
     return build_performance_report(start_time)

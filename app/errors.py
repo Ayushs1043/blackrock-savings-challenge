@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 
 def _sanitize_non_finite(value):
+    """Convert NaN/Infinity values into strings so error payloads remain JSON-safe."""
     if isinstance(value, float) and not math.isfinite(value):
         return str(value)
     if isinstance(value, list):
@@ -17,6 +18,8 @@ def _sanitize_non_finite(value):
 
 
 def add_exception_handlers(app: FastAPI) -> None:
+    """Attach uniform JSON error handlers for validation, HTTP, and unexpected errors."""
+
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_, exc: RequestValidationError) -> JSONResponse:
         detail = _sanitize_non_finite(jsonable_encoder(exc.errors()))

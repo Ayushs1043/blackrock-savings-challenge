@@ -1,3 +1,5 @@
+"""Pydantic schemas and validators for the BlackRock challenge workflows."""
+
 import math
 from datetime import datetime, timezone
 from typing import Any
@@ -9,6 +11,7 @@ DATETIME_ACCEPTED_FORMATS = (DATETIME_FORMAT, "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:
 
 
 def _normalize_datetime(value: datetime) -> datetime:
+    """Normalize timestamps to UTC-naive values with second-level precision."""
     normalized = value
     if normalized.tzinfo is not None:
         normalized = normalized.astimezone(timezone.utc).replace(tzinfo=None)
@@ -16,6 +19,7 @@ def _normalize_datetime(value: datetime) -> datetime:
 
 
 def _parse_datetime(value: Any) -> datetime:
+    """Parse supported datetime formats into normalized `datetime` objects."""
     if isinstance(value, datetime):
         return _normalize_datetime(value)
     if not isinstance(value, str):
@@ -38,6 +42,7 @@ def _parse_datetime(value: Any) -> datetime:
 
 
 def _parse_number(value: Any, *, field_name: str) -> float:
+    """Parse and validate numeric inputs while rejecting bool/NaN/Infinity values."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{field_name} must be a numeric value.")
     numeric_value = float(value)
@@ -47,6 +52,7 @@ def _parse_number(value: Any, *, field_name: str) -> float:
 
 
 class ChallengeBaseModel(BaseModel):
+    """Base schema config: strict fields and stable datetime serialization."""
     model_config = ConfigDict(
         extra="forbid",
         json_encoders={datetime: lambda dt: dt.strftime(DATETIME_FORMAT)},
@@ -54,6 +60,7 @@ class ChallengeBaseModel(BaseModel):
 
 
 class Expense(ChallengeBaseModel):
+    """Incoming expense row used by `transactions:parse`."""
     timestamp: datetime = Field(validation_alias=AliasChoices("timestamp", "date"))
     amount: float = Field(..., ge=0, lt=500_000)
 
@@ -69,6 +76,7 @@ class Expense(ChallengeBaseModel):
 
 
 class Transaction(ChallengeBaseModel):
+    """Normalized transaction format shared across challenge APIs."""
     date: datetime = Field(validation_alias=AliasChoices("date", "timestamp"))
     amount: float = Field(..., ge=0, lt=500_000)
     ceiling: float = Field(..., ge=0)
@@ -86,14 +94,17 @@ class Transaction(ChallengeBaseModel):
 
 
 class InvalidTransaction(Transaction):
+    """Transaction plus validation failure reason."""
     message: str
 
 
 class ProcessedTransaction(Transaction):
+    """Transaction including remanent after q/p temporal transformations."""
     effectiveRemanent: float = Field(..., ge=0)
 
 
 class DateRange(ChallengeBaseModel):
+    """Inclusive temporal range used by q/p/k rules."""
     start: datetime
     end: datetime
 
@@ -128,6 +139,7 @@ class ExtraPeriod(DateRange):
 
 
 class TransactionParseRequest(ChallengeBaseModel):
+    """Input payload for expense parsing into transaction records."""
     expenses: list[Expense] = Field(default_factory=list, max_length=1_000_000)
     roundMultiple: float = Field(default=100.0, gt=0, le=100_000)
 
@@ -145,6 +157,7 @@ class TransactionParseResponse(ChallengeBaseModel):
 
 
 class TransactionValidateRequest(ChallengeBaseModel):
+    """Input payload for transaction structural/business validation."""
     wage: float = Field(..., ge=0, lt=50_000_000)
     maxInvestmentAmount: float | None = Field(default=None, ge=0, le=500_000)
     transactions: list[Transaction] = Field(default_factory=list, max_length=1_000_000)
@@ -169,6 +182,7 @@ class TransactionValidateResponse(ChallengeBaseModel):
 
 
 class TransactionFilterRequest(ChallengeBaseModel):
+    """Input payload for q/p transformation and k-window filtering."""
     q: list[FixedPeriod] = Field(default_factory=list, max_length=1_000_000)
     p: list[ExtraPeriod] = Field(default_factory=list, max_length=1_000_000)
     k: list[DateRange] = Field(default_factory=list, max_length=1_000_000)
@@ -181,6 +195,7 @@ class TransactionFilterResponse(ChallengeBaseModel):
 
 
 class ReturnsRequest(ChallengeBaseModel):
+    """Input payload for return calculators (`returns:nps`, `returns:index`)."""
     age: int = Field(..., ge=0, le=120)
     wage: float = Field(..., ge=0, lt=50_000_000)
     inflation: float = Field(..., ge=0, le=100)
